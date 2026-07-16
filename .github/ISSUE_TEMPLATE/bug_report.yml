@@ -1,0 +1,34 @@
+name: Bug 报告
+description: 报告可复现的问题；禁止粘贴真实 Cookie 或敏感业务数据
+title: "[Bug] "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: 请先删除 Cookie、邮箱、手机号、真实报价和本机用户路径。
+  - type: textarea
+    id: problem
+    attributes:
+      label: 问题描述
+      description: 说明预期结果和实际结果。
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 最小复现步骤
+      description: 使用脱敏或虚构占位数据，不要上传真实业务表。
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: 环境
+      placeholder: Windows 11 / Python 3.12 / 项目版本
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 脱敏日志
+      render: shell
