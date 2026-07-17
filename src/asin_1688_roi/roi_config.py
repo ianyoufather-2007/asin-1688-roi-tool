@@ -31,7 +31,9 @@ class RoiAssumptions:
     volume_high_cny_per_cbm: float = 1900.0
 
     def __post_init__(self) -> None:
-        values = {item.name: _finite_number(item.name, getattr(self, item.name)) for item in fields(self)}
+        values = {
+            item.name: _finite_number(item.name, getattr(self, item.name)) for item in fields(self)
+        }
         for name, value in values.items():
             object.__setattr__(self, name, value)
 
@@ -83,4 +85,4 @@ def load_roi_assumptions(path: str | Path | None) -> tuple[RoiAssumptions, str]:
         raise ValueError(f"ROI 参数文件不是有效 JSON：{exc.msg}") from exc
     if not isinstance(raw, dict):
         raise ValueError("ROI 参数文件根节点必须是 JSON 对象")
-    return RoiAssumptions.from_mapping(raw), str(source)
+    return RoiAssumptions.from_mapping(raw), source.name

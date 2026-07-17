@@ -21,6 +21,30 @@ def run_cli_capture(
     return code, output.getvalue()
 
 
+def build_calculate_args(
+    *,
+    input_path: str,
+    candidate_path: str,
+    output_path: str,
+    fx: str = "",
+    config_path: str = "",
+) -> list[str]:
+    args = [
+        "calculate",
+        "--input",
+        input_path,
+        "--candidates",
+        candidate_path,
+        "--output",
+        output_path,
+    ]
+    if fx.strip():
+        args.extend(["--fx", fx.strip()])
+    if config_path.strip():
+        args.extend(["--config", config_path.strip()])
+    return args
+
+
 class App(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
@@ -30,6 +54,7 @@ class App(tk.Tk):
         self.candidate_var = tk.StringVar()
         self.cookie_var = tk.StringVar()
         self.output_var = tk.StringVar(value=str(Path("outputs/asin_roi_result.xlsx")))
+        self.config_var = tk.StringVar()
         self.fx_var = tk.StringVar()
         self._events: queue.Queue[tuple[int, str]] = queue.Queue()
         self._action_buttons: list[ttk.Button] = []
@@ -52,17 +77,18 @@ class App(tk.Tk):
         self._row(frame, 1, "候选Excel", self.candidate_var, self._pick_candidates)
         self._row(frame, 2, "Cookie文件", self.cookie_var, self._pick_cookie)
         self._row(frame, 3, "输出Excel", self.output_var, self._pick_output)
-        self._row(frame, 4, "USD/CNY（可空）", self.fx_var)
+        self._row(frame, 4, "ROI参数JSON", self.config_var, self._pick_config)
+        self._row(frame, 5, "USD/CNY（可空）", self.fx_var)
         buttons = ttk.Frame(frame)
-        buttons.grid(row=5, column=0, columnspan=3, pady=14)
+        buttons.grid(row=6, column=0, columnspan=3, pady=14)
         collect_button = ttk.Button(buttons, text="采集1688候选", command=self._collect)
         collect_button.pack(side="left", padx=8)
         calculate_button = ttk.Button(buttons, text="计算投产比", command=self._calculate)
         calculate_button.pack(side="left", padx=8)
         self._action_buttons.extend([collect_button, calculate_button])
         self.log = tk.Text(frame, height=12, wrap="word")
-        self.log.grid(row=6, column=0, columnspan=3, sticky="nsew", padx=8, pady=8)
-        frame.rowconfigure(6, weight=1)
+        self.log.grid(row=7, column=0, columnspan=3, sticky="nsew", padx=8, pady=8)
+        frame.rowconfigure(7, weight=1)
 
     def _pick_input(self):
         value = filedialog.askopenfilename(filetypes=[("Excel", "*.xlsx"), ("CSV", "*.csv")])
@@ -85,6 +111,11 @@ class App(tk.Tk):
         )
         if value:
             self.output_var.set(value)
+
+    def _pick_config(self):
+        value = filedialog.askopenfilename(filetypes=[("JSON", "*.json"), ("All", "*.*")])
+        if value:
+            self.config_var.set(value)
 
     def _run(self, args: list[str]):
         self.log.insert("end", "执行：" + " ".join(args) + "\n")
@@ -136,18 +167,15 @@ class App(tk.Tk):
         if not self.input_var.get() or not self.candidate_var.get():
             messagebox.showwarning("缺少参数", "请选择ASIN输入Excel和候选Excel")
             return
-        args = [
-            "calculate",
-            "--input",
-            self.input_var.get(),
-            "--candidates",
-            self.candidate_var.get(),
-            "--output",
-            self.output_var.get(),
-        ]
-        if self.fx_var.get().strip():
-            args.extend(["--fx", self.fx_var.get().strip()])
-        self._run(args)
+        self._run(
+            build_calculate_args(
+                input_path=self.input_var.get(),
+                candidate_path=self.candidate_var.get(),
+                output_path=self.output_var.get(),
+                fx=self.fx_var.get(),
+                config_path=self.config_var.get(),
+            )
+        )
 
 
 def main() -> None:

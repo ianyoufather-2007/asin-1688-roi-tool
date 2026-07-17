@@ -1,5 +1,8 @@
 # ASIN 1688 采购与 ROI 工具
 
+[![CI](https://github.com/ianyoufather-2007/asin-1688-roi-tool/actions/workflows/ci.yml/badge.svg)](https://github.com/ianyoufather-2007/asin-1688-roi-tool/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 把 Amazon ASIN 输入、1688 候选采集、同规格核验、采购成本和 ROI 计算串成一条可追溯工作流。
 
 > 当前状态：Alpha。适合本地研究和人工复核，不应直接替代供应商询价、Amazon 费用预览或财务审批。
@@ -33,6 +36,20 @@ ASIN 输入
 - 本机 Chrome 仅用于可选的详情页截图
 
 ## 安装
+
+Windows 一键安装基础依赖：
+
+```powershell
+.\scripts\setup_windows.ps1
+```
+
+同时安装 Chrome 详情采集和 GUI 依赖：
+
+```powershell
+.\scripts\setup_windows.ps1 -WithBrowser
+```
+
+手动安装方式：
 
 ```powershell
 py -m venv .venv
@@ -90,6 +107,10 @@ run_cli.bat collect `
 
 命令同时生成 `outputs/1688_candidates.xlsx`。在候选表中人工补齐规格、完整销售单元采购价、人工判断及原因。
 
+采集每完成一个关键词都会原子更新 `--output` JSON。后续关键词因网络、登录态或风控失败时，已完成候选仍会保留。对传输错误、HTTP 429 和 5xx 最多请求三次；认证失败和普通 4xx 不重试。
+
+需要查看脱敏进度日志时，在命令末尾增加 `--verbose`。日志不会主动记录 Cookie 内容。
+
 ## 可选详情采集
 
 ```powershell
@@ -114,6 +135,34 @@ run_cli.bat calculate `
 
 正式复核建议明确传入 `--fx`。省略时，程序按 [Frankfurter v2 官方接口](https://frankfurter.dev/) 获取最新工作日的 USD/CNY，并在来源追溯表记录接口地址。
 
+## 自定义 ROI 参数
+
+以 `examples/roi_assumptions.example.json` 为模板配置实际类目费率、仓储和物流报价：
+
+```powershell
+run_cli.bat calculate `
+  --input examples/asin_input_template.xlsx `
+  --candidates outputs/enriched_candidates.xlsx `
+  --config examples/roi_assumptions.example.json `
+  --fx 7.10 `
+  --output outputs/asin_roi_result.xlsx
+```
+
+支持字段：
+
+| 字段 | 默认值 | 约束 |
+|---|---:|---|
+| `commission_rate` | `0.15` | 大于等于 0 且小于 1 |
+| `storage_usd` | `0.10` | 大于等于 0 |
+| `conversion_rate` | `0.10` | 大于 0 且小于等于 1 |
+| `ad_traffic_share` | `0.20` | 0 至 1 |
+| `weight_low_cny_per_kg` | `8.50` | 大于等于 0 |
+| `weight_high_cny_per_kg` | `10.60` | 大于等于 0 |
+| `volume_low_cny_per_cbm` | `1360` | 大于等于 0 |
+| `volume_high_cny_per_cbm` | `1900` | 大于等于 0 |
+
+配置允许只覆盖部分字段；未知字段、布尔值、非有限数值和越界值会被拒绝。每次导出的 `ROI结果`、`来源追溯` 和 `参数说明` 都会记录配置来源和完整快照。
+
 ## 当前计算口径
 
 - Amazon 佣金：售价人民币 x 15%
@@ -122,7 +171,7 @@ run_cli.bat calculate `
 - 物流：`重量 x 8.5`、`体积 x 1360`、`重量 x 10.6`、`体积 x 1900` 四项取最大值
 - ROI：`推测真实毛利 / (采购成本 + 物流成本)`
 
-这些是项目当前预设，不代表所有 Amazon 类目、尺寸段、仓储周期或物流报价。商用决策前必须对照实际费用和报价。
+这些是项目默认预设，不代表所有 Amazon 类目、尺寸段、仓储周期或物流报价。可用 `--config` 覆盖，但商用决策前仍必须对照实际费用和报价。
 
 ## 输出
 
@@ -130,11 +179,11 @@ run_cli.bat calculate `
 - `1688候选`：候选商品、规格、人工判断和原始证据
 - `ASIN输入`：本次计算使用的输入快照
 - `来源追溯`：售价、CPC、汇率、采购价、物流和 FBA 来源
-- `参数说明`：当前公式和安全边界
+- `参数说明`：本次实际参数来源、快照、公式和安全边界
 
 ## GUI
 
-安装浏览器依赖后双击 `run_gui.bat`。耗时任务在后台执行，标准输出和错误会显示在窗口日志中。
+安装浏览器依赖后双击 `run_gui.bat`。界面可选择 ROI 参数 JSON；耗时任务在后台执行，标准输出和错误会显示在窗口日志中。
 
 ## 验证
 
@@ -151,6 +200,7 @@ CI 覆盖 Python 3.11 至 3.14，并额外在 Windows Python 3.12 验证。网�
 - [架构与职责](docs/architecture.md)
 - [数据字典](docs/data_dictionary.md)
 - [MVP 路线图](docs/roadmap.md)
+- [发布检查清单](docs/release_checklist.md)
 - [贡献指南](CONTRIBUTING.md)
 - [安全政策](SECURITY.md)
 

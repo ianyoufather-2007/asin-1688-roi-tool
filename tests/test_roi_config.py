@@ -33,7 +33,8 @@ def test_assumptions_file_can_override_a_subset(tmp_path):
     assert assumptions.commission_rate == 0.12
     assert assumptions.storage_usd == 0.25
     assert assumptions.conversion_rate == 0.10
-    assert source == str(config.resolve())
+    assert source == config.name
+    assert str(config.parent) not in source
 
 
 def test_assumptions_file_rejects_unknown_fields(tmp_path):

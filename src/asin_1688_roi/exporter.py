@@ -281,7 +281,9 @@ def write_workbook(
                     r.asin,
                     "ROI参数",
                     r.assumptions_snapshot,
-                    "配置文件" if r.assumptions_source != DEFAULT_ASSUMPTIONS_SOURCE else "内置参数",
+                    "配置文件"
+                    if r.assumptions_source != DEFAULT_ASSUMPTIONS_SOURCE
+                    else "内置参数",
                     r.assumptions_source,
                     "已使用",
                 ],

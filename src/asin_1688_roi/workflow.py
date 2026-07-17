@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from pathlib import Path
 
@@ -10,7 +11,10 @@ from asin_1688_roi.matcher import evaluate_all
 from asin_1688_roi.models import CandidateProduct
 from asin_1688_roi.mtop import MTopClient
 from asin_1688_roi.roi import FX_API_URL, calculate_results, fetch_fx_usd_cny
+from asin_1688_roi.roi_config import load_roi_assumptions
 from asin_1688_roi.search import search_candidates
+
+LOGGER = logging.getLogger(__name__)
 
 
 def read_cookie(cookie_file: str | Path | None) -> str:
@@ -42,6 +46,7 @@ def collect(
             if not target.search_keywords:
                 continue
             for keyword in target.search_keywords:
+                LOGGER.info("采集 ASIN=%s，关键词=%s", target.asin, keyword)
                 found = search_candidates(
                     mtop,
                     asin=target.asin,
@@ -59,6 +64,7 @@ def collect(
                     candidates.append(candidate)
                 if checkpoint_path is not None:
                     save_candidates_json(checkpoint_path, candidates)
+                LOGGER.info("当前已保留 %d 个去重候选", len(candidates))
     return targets, candidates
 
 
@@ -80,10 +86,19 @@ def run_calculation(
     candidate_path: str | Path,
     output_path: str | Path,
     fx: float | None,
+    config_path: str | Path | None = None,
 ):
     targets = load_targets(input_path)
     candidates = evaluate_all(targets, load_candidates(candidate_path))
     actual_fx = fx if fx is not None else fetch_fx_usd_cny()
     fx_source = "运行参数 --fx" if fx is not None else FX_API_URL
-    results = calculate_results(targets, candidates, actual_fx, fx_source=fx_source)
+    assumptions, assumptions_source = load_roi_assumptions(config_path)
+    results = calculate_results(
+        targets,
+        candidates,
+        actual_fx,
+        fx_source=fx_source,
+        assumptions=assumptions,
+        assumptions_source=assumptions_source,
+    )
     return write_workbook(output_path, targets=targets, candidates=candidates, results=results)
