@@ -7,11 +7,13 @@ import httpx
 
 from asin_1688_roi.matcher import valid_candidates
 from asin_1688_roi.models import CandidateProduct, RoiResult, TargetProduct
+from asin_1688_roi.roi_config import DEFAULT_ASSUMPTIONS_SOURCE, RoiAssumptions
 
-COMMISSION_RATE = 0.15
-STORAGE_USD = 0.10
-CONVERSION_RATE = 0.10
-AD_TRAFFIC_SHARE = 0.20
+DEFAULT_ASSUMPTIONS = RoiAssumptions()
+COMMISSION_RATE = DEFAULT_ASSUMPTIONS.commission_rate
+STORAGE_USD = DEFAULT_ASSUMPTIONS.storage_usd
+CONVERSION_RATE = DEFAULT_ASSUMPTIONS.conversion_rate
+AD_TRAFFIC_SHARE = DEFAULT_ASSUMPTIONS.ad_traffic_share
 FX_API_URL = "https://api.frankfurter.dev/v2/rate/USD/CNY"
 
 
@@ -30,15 +32,22 @@ def fetch_fx_usd_cny(timeout: float = 10.0, transport: httpx.BaseTransport | Non
     return float(rate)
 
 
-def logistics_cost(target: TargetProduct) -> float | None:
+def logistics_cost(
+    target: TargetProduct, assumptions: RoiAssumptions | None = None
+) -> float | None:
+    profile = assumptions or DEFAULT_ASSUMPTIONS
     weight = target.package_weight_kg or target.product_weight_kg
     dimensions = (target.package_length_cm, target.package_width_cm, target.package_height_cm)
     values: list[float] = []
     if weight is not None:
-        values.extend([weight * 8.50, weight * 10.60])
+        values.extend(
+            [weight * profile.weight_low_cny_per_kg, weight * profile.weight_high_cny_per_kg]
+        )
     if all(value is not None for value in dimensions):
         volume = dimensions[0] * dimensions[1] * dimensions[2] / 1_000_000
-        values.extend([volume * 1360, volume * 1900])
+        values.extend(
+            [volume * profile.volume_low_cny_per_cbm, volume * profile.volume_high_cny_per_cbm]
+        )
     return max(values) if values else None
 
 
@@ -48,9 +57,14 @@ def calculate_results(
     fx: float,
     *,
     fx_source: str = "调用方传入",
+    assumptions: RoiAssumptions | None = None,
+    assumptions_source: str = DEFAULT_ASSUMPTIONS_SOURCE,
 ) -> list[RoiResult]:
     if isinstance(fx, bool) or not math.isfinite(fx) or fx <= 0:
         raise ValueError("USD/CNY 汇率必须是大于 0 的有限数值")
+    profile = assumptions or DEFAULT_ASSUMPTIONS
+    profile_source = assumptions_source.strip() or DEFAULT_ASSUMPTIONS_SOURCE
+    profile_snapshot = profile.to_json()
     candidate_map: dict[str, list[CandidateProduct]] = defaultdict(list)
     for candidate in valid_candidates(candidates):
         candidate_map[candidate.asin].append(candidate)
@@ -63,11 +77,11 @@ def calculate_results(
         ]
         selected = max(valid, key=lambda c: c.comparison_price_cny or 0) if valid else None
         procurement = selected.comparison_price_cny if selected else None
-        logistics = logistics_cost(target)
+        logistics = logistics_cost(target, profile)
         revenue = target.selling_price_usd * fx
-        commission = revenue * COMMISSION_RATE
-        storage = STORAGE_USD * fx
-        ad = target.cpc_usd * AD_TRAFFIC_SHARE / CONVERSION_RATE * fx
+        commission = revenue * profile.commission_rate
+        storage = profile.storage_usd * fx
+        ad = target.cpc_usd * profile.ad_traffic_share / profile.conversion_rate * fx
         profit = None
         margin = None
         roi = None
@@ -110,6 +124,8 @@ def calculate_results(
                 procurement_source=selected.product_url if selected else "",
                 status="完整" if not missing else "缺少：" + "、".join(missing),
                 fx_source=fx_source.strip() or "调用方传入",
+                assumptions_source=profile_source,
+                assumptions_snapshot=profile_snapshot,
             )
         )
     return results

@@ -93,6 +93,8 @@ class RoiResult:
     procurement_source: str
     status: str
     fx_source: str = "调用方传入"
+    assumptions_source: str = "内置默认参数"
+    assumptions_snapshot: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

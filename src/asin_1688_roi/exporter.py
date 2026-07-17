@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import xlsxwriter
 
 from asin_1688_roi.models import CandidateProduct, RoiResult, TargetProduct
+from asin_1688_roi.roi_config import DEFAULT_ASSUMPTIONS_SOURCE, RoiAssumptions
 
 TARGET_HEADERS = [
     "ASIN",
@@ -81,7 +83,19 @@ ROI_HEADERS = [
     "有效候选数",
     "采购价来源",
     "状态",
+    "参数来源",
 ]
+
+
+def _workbook_assumptions(results: list[RoiResult]) -> tuple[RoiAssumptions, str, str]:
+    if not results or not results[0].assumptions_snapshot:
+        assumptions = RoiAssumptions()
+        return assumptions, DEFAULT_ASSUMPTIONS_SOURCE, assumptions.to_json()
+    snapshot = results[0].assumptions_snapshot
+    raw = json.loads(snapshot)
+    assumptions = RoiAssumptions.from_mapping(raw)
+    source = results[0].assumptions_source or DEFAULT_ASSUMPTIONS_SOURCE
+    return assumptions, source, snapshot
 
 
 def _write_table(
@@ -155,6 +169,7 @@ def write_workbook(
                 r.valid_candidate_count,
                 r.procurement_source,
                 r.status,
+                r.assumptions_source,
             ]
         )
     _write_table(roi_ws, ROI_HEADERS, roi_rows, formats)
@@ -162,6 +177,7 @@ def write_workbook(
     roi_ws.set_column("B:N", 13)
     roi_ws.set_column("O:O", 45)
     roi_ws.set_column("P:P", 25)
+    roi_ws.set_column("Q:Q", 35)
     for row in range(1, len(roi_rows) + 1):
         roi_ws.set_row(row, 22)
         roi_ws.write(row, 11, roi_rows[row - 1][11], formats["percent"])
@@ -263,6 +279,14 @@ def write_workbook(
                 [r.asin, "汇率", r.fx_usd_cny, fx_source_type, r.fx_source, "已使用"],
                 [
                     r.asin,
+                    "ROI参数",
+                    r.assumptions_snapshot,
+                    "配置文件" if r.assumptions_source != DEFAULT_ASSUMPTIONS_SOURCE else "内置参数",
+                    r.assumptions_source,
+                    "已使用",
+                ],
+                [
+                    r.asin,
                     "采购成本",
                     r.procurement_cost_cny,
                     "1688严格同规格",
@@ -292,17 +316,30 @@ def write_workbook(
     trace_ws.set_column("D:F", 35)
 
     rule_ws = workbook.add_worksheet("参数说明")
+    assumptions, assumptions_source, assumptions_snapshot = _workbook_assumptions(results)
     rules = [
         ["规则", "内容"],
+        ["本次参数来源", assumptions_source],
+        ["本次参数快照", assumptions_snapshot],
         [
             "采购价",
             "仅从匹配状态为“有效-自动/有效-人工确认”的1688候选中，取完整销售单元采购价最高值。",
         ],
         ["严格匹配", "材质、尺寸、功能、结构、销售单元、套装数量、配件数量不得跨规格混算。"],
-        ["佣金", "售价人民币 × 15%"],
-        ["仓储", "$0.10/件 × USD/CNY"],
-        ["广告", "CPC × 广告流量占比20% ÷ 转化率10% × USD/CNY，即 CPC × 2 × 汇率"],
-        ["物流", "重量×8.5、体积×1360、重量×10.6、体积×1900，四者取最大值。"],
+        ["佣金", f"售价人民币 × {assumptions.commission_rate:.2%}"],
+        ["仓储", f"${assumptions.storage_usd:g}/件 × USD/CNY"],
+        [
+            "广告",
+            f"CPC × 广告流量占比{assumptions.ad_traffic_share:.2%} "
+            f"÷ 转化率{assumptions.conversion_rate:.2%} × USD/CNY",
+        ],
+        [
+            "物流",
+            f"重量×{assumptions.weight_low_cny_per_kg:g}、"
+            f"体积×{assumptions.volume_low_cny_per_cbm:g}、"
+            f"重量×{assumptions.weight_high_cny_per_kg:g}、"
+            f"体积×{assumptions.volume_high_cny_per_cbm:g}，四者取最大值。",
+        ],
         ["投产比", "推测真实毛利 ÷（采购成本+物流成本）"],
         ["Cookie安全", "Cookie只应保存在本机，不要提交到GitHub、聊天或共享网盘。"],
     ]
