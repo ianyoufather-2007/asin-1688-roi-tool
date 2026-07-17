@@ -1,0 +1,24 @@
+name: 功能建议
+description: 提议与 Amazon 采购、1688 候选或 ROI 相关的改进
+title: "[Feature] "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: scenario
+    attributes:
+      label: 使用场景
+      description: 说明谁在什么决策中遇到什么问题。
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 最小验收标准
+      description: 给出可测试的输入、输出和人工确认边界。
+    validations:
+      required: true
+  - type: textarea
+    id: risks
+    attributes:
+      label: 数据、接口与合规风险
+      description: 说明数据来源、凭证、平台规则及可能的误判。

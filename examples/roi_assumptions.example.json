@@ -1,0 +1,10 @@
+{
+  "commission_rate": 0.15,
+  "storage_usd": 0.1,
+  "conversion_rate": 0.1,
+  "ad_traffic_share": 0.2,
+  "weight_low_cny_per_kg": 8.5,
+  "weight_high_cny_per_kg": 10.6,
+  "volume_low_cny_per_cbm": 1360.0,
+  "volume_high_cny_per_cbm": 1900.0
+}
