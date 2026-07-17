@@ -7,9 +7,12 @@ import json
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass
+from functools import partial
 from typing import Any
 
 import httpx
+
+from asin_1688_roi.http_retry import RetryPolicy, request_with_retry
 
 MTOP_APP_KEY = "12574478"
 TOKEN_ERROR_MARKERS = (
@@ -103,6 +106,7 @@ class MTopClient:
         referer: str = "https://s.1688.com/",
         timeout: float = 20.0,
         transport: httpx.BaseTransport | None = None,
+        retry_policy: RetryPolicy | None = None,
     ):
         cookies = parse_cookie_header(cookie_header)
         for required in ("_m_h5_tk", "_m_h5_tk_enc"):
@@ -112,6 +116,7 @@ class MTopClient:
         for name, value in cookies.items():
             jar.set(name, value, domain=".1688.com", path="/")
         self._referer = referer
+        self._retry_policy = retry_policy or RetryPolicy()
         self._client = httpx.Client(
             cookies=jar,
             timeout=timeout,
@@ -174,10 +179,16 @@ class MTopClient:
             }
             if extra_query:
                 query.update(extra_query)
-            response = self._client.get(
-                endpoint, params=query, headers={"Referer": referer or self._referer}
+            response = request_with_retry(
+                partial(
+                    self._client.get,
+                    endpoint,
+                    params=query,
+                    headers={"Referer": referer or self._referer},
+                ),
+                policy=self._retry_policy,
+                operation_name="1688 MTop 请求",
             )
-            response.raise_for_status()
             payload = parse_jsonp(response.text, callback)
             raw_ret = payload.get("ret", [])
             ret = (

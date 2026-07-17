@@ -4,6 +4,7 @@ import httpx
 import pytest
 
 import asin_1688_roi.roi as roi_module
+from asin_1688_roi.http_retry import RetryPolicy
 from asin_1688_roi.models import CandidateProduct, TargetProduct
 from asin_1688_roi.roi import calculate_results, fetch_fx_usd_cny, logistics_cost
 from asin_1688_roi.roi_config import RoiAssumptions
@@ -78,6 +79,25 @@ def test_fetch_fx_uses_current_official_frankfurter_endpoint():
     rate = fetch_fx_usd_cny(transport=httpx.MockTransport(handler))
 
     assert rate == 7.1234
+
+
+def test_fetch_fx_retries_retryable_server_error():
+    attempts = 0
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            return httpx.Response(503)
+        return httpx.Response(200, json={"rate": 7.2})
+
+    rate = fetch_fx_usd_cny(
+        transport=httpx.MockTransport(handler),
+        retry_policy=RetryPolicy(max_attempts=2, backoff_seconds=0),
+    )
+
+    assert rate == 7.2
+    assert attempts == 2
 
 
 @pytest.mark.parametrize("rate", [None, 0, -1, math.inf, True])

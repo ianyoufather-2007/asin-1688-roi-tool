@@ -5,6 +5,7 @@ from collections import defaultdict
 
 import httpx
 
+from asin_1688_roi.http_retry import RetryPolicy, request_with_retry
 from asin_1688_roi.matcher import valid_candidates
 from asin_1688_roi.models import CandidateProduct, RoiResult, TargetProduct
 from asin_1688_roi.roi_config import DEFAULT_ASSUMPTIONS_SOURCE, RoiAssumptions
@@ -17,10 +18,17 @@ AD_TRAFFIC_SHARE = DEFAULT_ASSUMPTIONS.ad_traffic_share
 FX_API_URL = "https://api.frankfurter.dev/v2/rate/USD/CNY"
 
 
-def fetch_fx_usd_cny(timeout: float = 10.0, transport: httpx.BaseTransport | None = None) -> float:
+def fetch_fx_usd_cny(
+    timeout: float = 10.0,
+    transport: httpx.BaseTransport | None = None,
+    retry_policy: RetryPolicy | None = None,
+) -> float:
     with httpx.Client(timeout=timeout, transport=transport) as client:
-        response = client.get(FX_API_URL)
-        response.raise_for_status()
+        response = request_with_retry(
+            lambda: client.get(FX_API_URL),
+            policy=retry_policy,
+            operation_name="汇率 API",
+        )
     rate = response.json().get("rate")
     if (
         isinstance(rate, bool)

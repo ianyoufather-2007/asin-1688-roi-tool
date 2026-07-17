@@ -26,7 +26,12 @@ def read_cookie(cookie_file: str | Path | None) -> str:
 
 
 def collect(
-    input_path: str | Path, cookie_file: str | Path | None, pages: int, page_size: int
+    input_path: str | Path,
+    cookie_file: str | Path | None,
+    pages: int,
+    page_size: int,
+    *,
+    checkpoint_path: str | Path | None = None,
 ) -> tuple[list, list[CandidateProduct]]:
     targets = load_targets(input_path)
     cookie = read_cookie(cookie_file)
@@ -52,16 +57,20 @@ def collect(
                             continue
                         seen_candidates.add(key)
                     candidates.append(candidate)
+                if checkpoint_path is not None:
+                    save_candidates_json(checkpoint_path, candidates)
     return targets, candidates
 
 
 def save_candidates_json(path: str | Path, candidates: list[CandidateProduct]) -> Path:
     output = Path(path)
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(
+    temporary = output.with_suffix(output.suffix + ".tmp")
+    temporary.write_text(
         json.dumps([candidate.to_dict() for candidate in candidates], ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+    temporary.replace(output)
     return output
 
 
