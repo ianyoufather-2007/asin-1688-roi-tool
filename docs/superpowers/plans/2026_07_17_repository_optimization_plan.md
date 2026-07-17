@@ -94,10 +94,10 @@
 
 **文件：** 不新增生产文件。
 
-- [ ] 运行 `py -m pytest -q`。
-- [ ] 运行 `py -m ruff check .` 和 `py -m ruff format --check .`。
-- [ ] 隔离构建 sdist 和 wheel，并检查包内容。
-- [ ] 扫描个人标识、Cookie、Token 和真实 ASIN。
-- [ ] 提交并推送 `agent/initial-release`。
-- [ ] 更新 GitHub 仓库简介和 Topics。
-- [ ] 等待草稿 PR 的全部 CI 结果，不合并 PR。
+- [x] 运行 `py -m pytest -q`。
+- [x] 运行 `py -m ruff check .` 和 `py -m ruff format --check .`。
+- [x] 隔离构建 sdist 和 wheel，并检查包内容。
+- [x] 扫描个人标识、Cookie、Token 和真实 ASIN。
+- [x] 提交并推送 `agent/initial-release`。
+- [x] 更新 GitHub 仓库简介和 Topics。
+- [x] 等待草稿 PR 的全部 CI 结果，不合并 PR。
